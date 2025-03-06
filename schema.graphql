@@ -1,0 +1,42 @@
+type Participation @entity {
+  id: ID!
+  phase: Int!
+  user: String!
+  amount: BigInt!
+  index: Int!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  txHash: String!
+}
+
+type Refund @entity {
+  id: ID!
+  phase: Int!
+  user: String!
+  amount: BigInt!
+  index: Int!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  txHash: String!
+}
+
+type PresalePhase @entity {
+  id: ID!
+  phase: Int!
+  merkleRoot: String!
+  refundRoot: String!
+  priceInBERA: BigInt!
+  participationCount: Int!
+  refundCount: Int!
+  totalParticipationAmount: BigInt!
+  totalRefundAmount: BigInt!
+}
+
+type PresaleStats @entity {
+  id: ID!
+  currentPhase: Int!
+  totalParticipants: Int!
+  uniqueParticipants: Int!
+  totalParticipationAmount: BigInt!
+  totalRefundAmount: BigInt!
+}
