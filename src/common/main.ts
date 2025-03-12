@@ -1,7 +1,6 @@
-import { CHAINS, CONTRACTS, ContractType } from "../constants";
+import { CHAINS, CONTRACTS } from "../constants";
 import { Context } from "./processorFactory";
 import { Participation, Refund, PresalePhase, PresaleStats } from "../model";
-import { zeroAddress } from "viem";
 import * as miberaPresaleAbi from "../abi/miberaPresale";
 import { DateTime } from "luxon";
 import { StoreWithCache } from "@belopash/typeorm-store";

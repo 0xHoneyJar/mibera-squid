@@ -7,7 +7,7 @@ export enum CHAINS {
 }
 
 export const CHAIN_START_BLOCK = {
-  [CHAINS.BERACHAIN]: 761201,
+  [CHAINS.BERACHAIN]: 1953786,
 } as const;
 
 export const CONTRACTS: {
@@ -20,7 +20,7 @@ export const CONTRACTS: {
   [ContractType.MiberaPresale]: {
     address: "0xf560219c0ccD98cD517B6cAFd4A3D62c00628B28" as const,
     network: CHAINS.BERACHAIN,
-    startBlock: 16751283,
+    startBlock: 1953786,
   },
 } as const;
 

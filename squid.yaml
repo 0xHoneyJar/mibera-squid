@@ -8,8 +8,6 @@ deploy:
     RPC_BERACHAIN_HTTP: ${{ secrets.RPC_BERACHAIN_HTTP }}
   addons:
     postgres:
-    rpc:
-      - berachain.http
   processor:
     - name: bera-processor
       cmd:
