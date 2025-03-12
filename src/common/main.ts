@@ -1,9 +1,9 @@
-import { CHAINS, CONTRACTS } from "../constants";
-import { Context } from "./processorFactory";
-import { Participation, Refund, PresalePhase, PresaleStats } from "../model";
-import * as miberaPresaleAbi from "../abi/miberaPresale";
-import { DateTime } from "luxon";
 import { StoreWithCache } from "@belopash/typeorm-store";
+import { DateTime } from "luxon";
+import * as miberaPresaleAbi from "../abi/miberaPresale";
+import { CHAINS, CONTRACTS } from "../constants";
+import { Participation, PresalePhase, PresaleStats, Refund } from "../model";
+import { Context } from "./processorFactory";
 
 type Task = () => Promise<void>;
 
@@ -100,7 +100,6 @@ async function processBlock(mctx: MappingContext, block: any, chain: CHAINS) {
           phase,
           user,
           amount,
-          log.index,
           timestamp,
           currentBlockNumber,
           log.transactionHash,
@@ -121,7 +120,6 @@ async function processBlock(mctx: MappingContext, block: any, chain: CHAINS) {
           phase,
           user,
           amount,
-          log.index,
           timestamp,
           currentBlockNumber,
           log.transactionHash,
@@ -137,7 +135,6 @@ async function handleParticipation(
   phase: bigint,
   user: string,
   amount: bigint,
-  index: number,
   timestamp: bigint,
   blockNumber: bigint,
   txHash: string,
@@ -145,11 +142,10 @@ async function handleParticipation(
 ) {
   // Create a new Participation entity
   const participation = new Participation({
-    id: `${txHash}-${index}`,
+    id: `${txHash}-${user}`,
     phase: Number(phase),
     user: user.toLowerCase(),
     amount,
-    index,
     timestamp,
     blockNumber,
     txHash,
@@ -169,7 +165,6 @@ async function handleRefund(
   phase: bigint,
   user: string,
   amount: bigint,
-  index: number,
   timestamp: bigint,
   blockNumber: bigint,
   txHash: string,
@@ -177,11 +172,10 @@ async function handleRefund(
 ) {
   // Create a new Refund entity
   const refund = new Refund({
-    id: `${txHash}-${index}`,
+    id: `${txHash}-${user}`,
     phase: Number(phase),
     user: user.toLowerCase(),
     amount,
-    index,
     timestamp,
     blockNumber,
     txHash,

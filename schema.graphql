@@ -3,7 +3,6 @@ type Participation @entity {
   phase: Int!
   user: String!
   amount: BigInt!
-  index: Int!
   timestamp: BigInt!
   blockNumber: BigInt!
   txHash: String!
@@ -14,7 +13,6 @@ type Refund @entity {
   phase: Int!
   user: String!
   amount: BigInt!
-  index: Int!
   timestamp: BigInt!
   blockNumber: BigInt!
   txHash: String!

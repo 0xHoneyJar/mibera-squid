@@ -18,9 +18,6 @@ export class Participation {
     @BigIntColumn_({nullable: false})
     amount!: bigint
 
-    @IntColumn_({nullable: false})
-    index!: number
-
     @BigIntColumn_({nullable: false})
     timestamp!: bigint
 
