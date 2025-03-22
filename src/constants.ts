@@ -18,9 +18,9 @@ export const CONTRACTS: {
   };
 } = {
   [ContractType.MiberaPresale]: {
-    address: "0xf560219c0ccD98cD517B6cAFd4A3D62c00628B28" as const,
+    address: "0x3Bb5B663Cd09C5550B9ECDB1500C25669c171230" as const,
     network: CHAINS.BERACHAIN,
-    startBlock: 1953786,
+    startBlock: 2665821,
   },
 } as const;
 
