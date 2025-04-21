@@ -1,11 +1,16 @@
-module.exports = class Data1741741859551 {
-    name = 'Data1741741859551'
+module.exports = class Data1745274104315 {
+    name = 'Data1745274104315'
 
     async up(db) {
         await db.query(`CREATE TABLE "participation" ("id" character varying NOT NULL, "phase" integer NOT NULL, "user" text NOT NULL, "amount" numeric NOT NULL, "timestamp" numeric NOT NULL, "block_number" numeric NOT NULL, "tx_hash" text NOT NULL, CONSTRAINT "PK_ba5442bab90fc96ddde456c69e1" PRIMARY KEY ("id"))`)
         await db.query(`CREATE TABLE "refund" ("id" character varying NOT NULL, "phase" integer NOT NULL, "user" text NOT NULL, "amount" numeric NOT NULL, "timestamp" numeric NOT NULL, "block_number" numeric NOT NULL, "tx_hash" text NOT NULL, CONSTRAINT "PK_f1cefa2e60d99b206c46c1116e5" PRIMARY KEY ("id"))`)
         await db.query(`CREATE TABLE "presale_phase" ("id" character varying NOT NULL, "phase" integer NOT NULL, "merkle_root" text NOT NULL, "refund_root" text NOT NULL, "price_in_bera" numeric NOT NULL, "participation_count" integer NOT NULL, "refund_count" integer NOT NULL, "total_participation_amount" numeric NOT NULL, "total_refund_amount" numeric NOT NULL, CONSTRAINT "PK_94cfc8bf14a9554f1a13c085263" PRIMARY KEY ("id"))`)
         await db.query(`CREATE TABLE "presale_stats" ("id" character varying NOT NULL, "current_phase" integer NOT NULL, "total_participants" integer NOT NULL, "unique_participants" integer NOT NULL, "total_participation_amount" numeric NOT NULL, "total_refund_amount" numeric NOT NULL, CONSTRAINT "PK_a4aaafa57a6a8a3e6f17986849b" PRIMARY KEY ("id"))`)
+        await db.query(`CREATE TABLE "loan" ("id" character varying NOT NULL, "amount" numeric NOT NULL, "expiry" TIMESTAMP WITH TIME ZONE NOT NULL, "status" character varying(9) NOT NULL, "nft_ids" text array NOT NULL, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL, "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL, "user_id" character varying, CONSTRAINT "PK_4ceda725a323d254a5fd48bf95f" PRIMARY KEY ("id"))`)
+        await db.query(`CREATE INDEX "IDX_53e13d0f4512c420ceb586f673" ON "loan" ("user_id") `)
+        await db.query(`CREATE TABLE "user" ("id" character varying NOT NULL, CONSTRAINT "PK_cace4a159ff9f2512dd42373760" PRIMARY KEY ("id"))`)
+        await db.query(`CREATE TABLE "daily_rfv" ("id" character varying NOT NULL, "value" numeric NOT NULL, "timestamp" numeric NOT NULL, "day" numeric NOT NULL, CONSTRAINT "PK_e5be91540152a2c864a10aa5061" PRIMARY KEY ("id"))`)
+        await db.query(`ALTER TABLE "loan" ADD CONSTRAINT "FK_53e13d0f4512c420ceb586f6737" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
     }
 
     async down(db) {
@@ -13,5 +18,10 @@ module.exports = class Data1741741859551 {
         await db.query(`DROP TABLE "refund"`)
         await db.query(`DROP TABLE "presale_phase"`)
         await db.query(`DROP TABLE "presale_stats"`)
+        await db.query(`DROP TABLE "loan"`)
+        await db.query(`DROP INDEX "public"."IDX_53e13d0f4512c420ceb586f673"`)
+        await db.query(`DROP TABLE "user"`)
+        await db.query(`DROP TABLE "daily_rfv"`)
+        await db.query(`ALTER TABLE "loan" DROP CONSTRAINT "FK_53e13d0f4512c420ceb586f6737"`)
     }
 }

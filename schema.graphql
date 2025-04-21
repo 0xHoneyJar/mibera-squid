@@ -38,3 +38,33 @@ type PresaleStats @entity {
   totalParticipationAmount: BigInt!
   totalRefundAmount: BigInt!
 }
+
+# New entities for loan tracking
+type User @entity {
+  id: ID! # User address
+  loans: [Loan!]! @derivedFrom(field: "user")
+}
+
+type Loan @entity {
+  id: ID! # Loan ID (backingLoanId)
+  user: User!
+  amount: BigInt! # backingOwed
+  expiry: DateTime! # timestampDue
+  status: LoanStatus!
+  nftIds: [String!]! # Array of token IDs used as collateral
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+enum LoanStatus {
+  ACTIVE
+  EXPIRED
+  PAID_BACK
+}
+
+type DailyRFV @entity {
+  id: ID! # Combination of day timestamp and exact timestamp
+  value: BigInt!
+  timestamp: BigInt!
+  day: BigInt! # Start of the day timestamp for easy sorting
+}

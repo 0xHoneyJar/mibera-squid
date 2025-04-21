@@ -1,8 +1,9 @@
 import { StoreWithCache } from "@belopash/typeorm-store";
 import { DateTime } from "luxon";
 import * as miberaPresaleAbi from "../abi/miberaPresale";
-import { CHAINS, CONTRACTS } from "../constants";
+import { CHAINS, CONTRACTS, ContractType } from "../constants";
 import { Participation, PresalePhase, PresaleStats, Refund } from "../model";
+import { processLoanEvents } from "./loanProcessor";
 import { Context } from "./processorFactory";
 
 type Task = () => Promise<void>;
@@ -27,6 +28,14 @@ export function createMain(chain: CHAINS) {
 }
 
 async function processChain(ctx: Context, chain: CHAINS) {
+  // Process presale events
+  await processPresaleEvents(ctx, chain);
+  
+  // Process loan events
+  await processLoanEvents(ctx, chain);
+}
+
+async function processPresaleEvents(ctx: Context, chain: CHAINS) {
   const mctx: MappingContext = {
     ...ctx,
     queue: [],
@@ -36,7 +45,7 @@ async function processChain(ctx: Context, chain: CHAINS) {
   await initializePresaleStats(mctx, chain);
 
   for (let block of ctx.blocks) {
-    await processBlock(mctx, block, chain);
+    await processPresaleBlock(mctx, block, chain);
   }
 
   // Execute queued tasks
@@ -63,13 +72,13 @@ async function initializePresaleStats(mctx: MappingContext, chain: CHAINS) {
   }
 }
 
-async function processBlock(mctx: MappingContext, block: any, chain: CHAINS) {
+async function processPresaleBlock(mctx: MappingContext, block: any, chain: CHAINS) {
   const currentBlockNumber = BigInt(block.header.height);
   const timestamp = BigInt(block.header.timestamp);
   const blockTime = DateTime.fromMillis(Number(block.header.timestamp));
 
   // Get the MiberaPresale contract address
-  const miberaPresaleContract = CONTRACTS.MiberaPresale;
+  const miberaPresaleContract = CONTRACTS[ContractType.MiberaPresale];
 
   // Skip if the contract doesn't exist for this chain or if we're before the start block
   if (
