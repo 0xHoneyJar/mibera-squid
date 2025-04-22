@@ -7,10 +7,8 @@ import {
   Transaction as _Transaction,
 } from "@subsquid/evm-processor";
 import { assertNotNull } from "@subsquid/util-internal";
-import * as miberaPresaleAbi from "../abi/miberaPresale";
 import * as treasuryAbi from "../abi/treasury";
 import {
-  ARCHIVE_ENDPOINTS,
   CHAIN_NODE_URLS,
   CHAIN_START_BLOCK,
   CHAINS,
@@ -20,16 +18,9 @@ import {
 import { StoreWithCache } from "@belopash/typeorm-store";
 
 export function createProcessor(chain: CHAINS) {
-  const miberaPresaleContract = CONTRACTS[ContractType.MiberaPresale];
   const treasuryContract = CONTRACTS[ContractType.Treasury];
 
   const processor = new EvmBatchProcessor();
-
-  // Only set archive gateway if one exists for the chain
-  if (ARCHIVE_ENDPOINTS[chain]) {
-    // processor.setGateway(ARCHIVE_ENDPOINTS[chain]);
-  }
-
   processor
     .setPortal(assertNotNull(
         process.env.PORTAL_URL, 
@@ -49,18 +40,6 @@ export function createProcessor(chain: CHAINS) {
     })
     .setBlockRange({ from: CHAIN_START_BLOCK[chain] });
 
-  // Skip if the MiberaPresale contract doesn't exist for this chain
-  if (miberaPresaleContract && miberaPresaleContract.network === chain) {
-    processor.addLog({
-      address: [miberaPresaleContract.address],
-      range: { from: miberaPresaleContract.startBlock },
-      topic0: [
-        miberaPresaleAbi.events.Participated.topic,
-        miberaPresaleAbi.events.Refunded.topic,
-      ],
-    });
-  }
-
   // Skip if the Treasury contract doesn't exist for this chain
   if (treasuryContract && treasuryContract.network === chain) {
     processor.addLog({
@@ -71,6 +50,11 @@ export function createProcessor(chain: CHAINS) {
         treasuryAbi.events.BackingLoanExpired.topic,
         treasuryAbi.events.BackingLoanPayedBack.topic,
         treasuryAbi.events.RFVChanged.topic,
+        treasuryAbi.events.ItemRedeemed.topic,
+        treasuryAbi.events.ItemPurchased.topic,
+        treasuryAbi.events.ItemLoaned.topic,
+        treasuryAbi.events.LoanItemSentBack.topic,
+        treasuryAbi.events.ItemLoanExpired.topic,
       ],
       transaction: true,
     });

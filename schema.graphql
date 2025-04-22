@@ -1,45 +1,3 @@
-type Participation @entity {
-  id: ID!
-  phase: Int!
-  user: String!
-  amount: BigInt!
-  timestamp: BigInt!
-  blockNumber: BigInt!
-  txHash: String!
-}
-
-type Refund @entity {
-  id: ID!
-  phase: Int!
-  user: String!
-  amount: BigInt!
-  timestamp: BigInt!
-  blockNumber: BigInt!
-  txHash: String!
-}
-
-type PresalePhase @entity {
-  id: ID!
-  phase: Int!
-  merkleRoot: String!
-  refundRoot: String!
-  priceInBERA: BigInt!
-  participationCount: Int!
-  refundCount: Int!
-  totalParticipationAmount: BigInt!
-  totalRefundAmount: BigInt!
-}
-
-type PresaleStats @entity {
-  id: ID!
-  currentPhase: Int!
-  totalParticipants: Int!
-  uniqueParticipants: Int!
-  totalParticipationAmount: BigInt!
-  totalRefundAmount: BigInt!
-}
-
-# New entities for loan tracking
 type User @entity {
   id: ID! # User address
   loans: [Loan!]! @derivedFrom(field: "user")
@@ -67,4 +25,13 @@ type DailyRFV @entity {
   value: BigInt!
   timestamp: BigInt!
   day: BigInt! # Start of the day timestamp for easy sorting
+}
+
+# New entity to track tokens available for purchase in the treasury
+type AvailableToken @entity {
+  id: ID! # Token ID
+  isAvailable: Boolean! # Whether the token is available for purchase
+  addedAt: DateTime!
+  updatedAt: DateTime!
+  chain: String! # The blockchain network
 }
