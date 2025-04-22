@@ -6,7 +6,7 @@ build:
 deploy:
   env:
     RPC_BERACHAIN_HTTP: ${{ secrets.RPC_BERACHAIN_HTTP }}
-    # PORTAL_URL: ${{ addons.portal.berachain_mainnet.http }}
+    PORTAL_URL: ${{ addons.portal.berachain_mainnet.http }}
   addons:
     postgres:
   processor:
