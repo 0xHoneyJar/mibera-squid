@@ -115,9 +115,10 @@ async function saveMintActivity(
   operator: string | undefined,
   log: any
 ) {
-  // Find the transaction in the block to get the value (amount paid)
-  const tx = log.transaction;
-  const amountPaid = tx && tx.value ? BigInt(tx.value) : 0n;
+  // Get the transaction value (amount paid in native token)
+  const amountPaid = log.transaction?.value
+    ? BigInt(log.transaction.value)
+    : 0n;
 
   const id = `${txHash}-${tokenId?.toString() || ""}-${user.toLowerCase()}`;
   const mint = new MintActivity({

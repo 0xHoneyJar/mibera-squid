@@ -46,6 +46,7 @@ export function createProcessor(chain: CHAINS) {
       },
       transaction: {
         from: true,
+        value: true,
       },
     })
     .setBlockRange({ from: CHAIN_START_BLOCK[chain] });
