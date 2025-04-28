@@ -1,12 +1,15 @@
+import { StoreWithCache } from "@belopash/typeorm-store";
 import {
+  Log as _Log,
+  Transaction as _Transaction,
   BlockHeader,
   DataHandlerContext,
   EvmBatchProcessor,
   EvmBatchProcessorFields,
-  Log as _Log,
-  Transaction as _Transaction,
 } from "@subsquid/evm-processor";
 import { assertNotNull } from "@subsquid/util-internal";
+import * as erc1155Abi from "../abi/erc1155";
+import * as erc721Abi from "../abi/erc721";
 import * as treasuryAbi from "../abi/treasury";
 import {
   CHAIN_NODE_URLS,
@@ -15,17 +18,24 @@ import {
   CONTRACTS,
   ContractType,
 } from "../constants";
-import { StoreWithCache } from "@belopash/typeorm-store";
 
 export function createProcessor(chain: CHAINS) {
   const treasuryContract = CONTRACTS[ContractType.Treasury];
+  const presaleContract = CONTRACTS[ContractType.Presale];
+  const candiesContract = CONTRACTS[ContractType.Candies];
+  const vendingMachineContract = CONTRACTS[ContractType.VendingMachine];
+  const fractureV1Contract = CONTRACTS[ContractType.FractureV1];
+  const fractureV2Contract = CONTRACTS[ContractType.FractureV2];
+  const fractureV3Contract = CONTRACTS[ContractType.FractureV3];
 
   const processor = new EvmBatchProcessor();
   processor
-    .setPortal(assertNotNull(
-        process.env.PORTAL_URL, 
-        'Required env variable PORTAL_URL is missing'
-    ))
+    .setPortal(
+      assertNotNull(
+        process.env.PORTAL_URL,
+        "Required env variable PORTAL_URL is missing"
+      )
+    )
     .setRpcEndpoint({
       url: assertNotNull(CHAIN_NODE_URLS[chain], "No RPC endpoint supplied"),
     })
@@ -56,6 +66,55 @@ export function createProcessor(chain: CHAINS) {
         treasuryAbi.events.LoanItemSentBack.topic,
         treasuryAbi.events.ItemLoanExpired.topic,
       ],
+      transaction: true,
+    });
+  }
+
+  if (candiesContract && candiesContract.network === chain) {
+    processor.addLog({
+      address: [candiesContract.address],
+      range: { from: candiesContract.startBlock },
+      topic0: [
+        erc1155Abi.events.TransferSingle.topic,
+        erc1155Abi.events.TransferBatch.topic,
+      ],
+      transaction: true,
+    });
+  }
+
+  // Repeat for vendingMachineContract, fractureV1Contract, etc. with ERC721 Transfer event
+  if (vendingMachineContract && vendingMachineContract.network === chain) {
+    processor.addLog({
+      address: [vendingMachineContract.address],
+      range: { from: vendingMachineContract.startBlock },
+      topic0: [erc721Abi.events.Transfer.topic],
+      transaction: true,
+    });
+  }
+
+  if (fractureV1Contract && fractureV1Contract.network === chain) {
+    processor.addLog({
+      address: [fractureV1Contract.address],
+      range: { from: fractureV1Contract.startBlock },
+      topic0: [erc721Abi.events.Transfer.topic],
+      transaction: true,
+    });
+  }
+
+  if (fractureV2Contract && fractureV2Contract.network === chain) {
+    processor.addLog({
+      address: [fractureV2Contract.address],
+      range: { from: fractureV2Contract.startBlock },
+      topic0: [erc721Abi.events.Transfer.topic],
+      transaction: true,
+    });
+  }
+
+  if (fractureV3Contract && fractureV3Contract.network === chain) {
+    processor.addLog({
+      address: [fractureV3Contract.address],
+      range: { from: fractureV3Contract.startBlock },
+      topic0: [erc721Abi.events.Transfer.topic],
       transaction: true,
     });
   }

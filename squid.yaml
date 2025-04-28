@@ -1,6 +1,6 @@
 manifestVersion: subsquid.io/v0.1
 name: mibera-squid
-version: 5
+version: 6
 description: A squid that indexes mibera presale claims
 build:
 deploy:

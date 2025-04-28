@@ -35,3 +35,37 @@ type AvailableToken @entity {
   updatedAt: DateTime!
   chain: String! # The blockchain network
 }
+
+type Order @entity {
+  id: ID!
+  user: String!
+  tokenId: BigInt!
+  amount: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  txHash: String!
+  operator: String!
+}
+
+type UserTokenBalance @entity {
+  id: ID!
+  user: String!
+  tokenId: BigInt!
+  balance: BigInt!
+  lastUpdatedAt: BigInt!
+}
+
+type MintActivity @entity {
+  id: ID!
+  user: String!
+  contract: String!
+  tokenStandard: String!
+  tokenId: BigInt
+  amount: BigInt
+  quantity: BigInt
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  txHash: String!
+  operator: String
+  amountPaid: BigInt! # Native token paid (in wei)
+}

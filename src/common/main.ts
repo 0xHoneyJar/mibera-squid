@@ -1,6 +1,7 @@
 import { StoreWithCache } from "@belopash/typeorm-store";
 import { CHAINS } from "../constants";
 import { processLoanEvents } from "./loanProcessor";
+import { processOrderEvents } from "./orderProcessor";
 import { Context } from "./processorFactory";
 
 export function createMultiChainMain() {
@@ -20,4 +21,5 @@ export function createMain(chain: CHAINS) {
 async function processChain(ctx: Context, chain: CHAINS) {
   // Process loan events
   await processLoanEvents(ctx, chain);
+  await processOrderEvents(ctx, chain);
 }
