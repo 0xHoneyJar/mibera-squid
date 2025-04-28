@@ -1,6 +1,6 @@
 import * as erc1155Abi from "../abi/erc1155";
 import * as erc721Abi from "../abi/erc721";
-import { CHAINS, CONTRACTS, ContractType } from "../constants";
+import { ContractType } from "../constants";
 import { MintActivity } from "../model";
 import { Context } from "./processorFactory";
 
@@ -20,121 +20,89 @@ const ERC721_CONTRACTS = [
   ContractType.FractureV3,
 ];
 
-export async function processMintActivity(ctx: Context, chain: CHAINS) {
-  const mctx: MappingContext = { ...ctx, queue: [] };
-
-  for (let block of ctx.blocks) {
-    await processMintBlock(mctx, block, chain);
-  }
-
-  for (let task of mctx.queue) {
-    await task();
-  }
-}
-
-async function processMintBlock(
-  mctx: MappingContext,
-  block: any,
-  chain: CHAINS
+export async function handleERC1155Mint(
+  mctx: any,
+  log: any,
+  contractAddress: string,
+  timestamp: bigint,
+  blockNumber: bigint
 ) {
-  const timestamp = BigInt(block.header.timestamp);
-  const blockNumber = BigInt(block.header.height);
-
-  for (const contractType of ERC1155_CONTRACTS) {
-    const contract = CONTRACTS[contractType];
-    if (!contract || contract.network !== chain) continue;
-
-    for (let log of block.logs) {
-      if (log.address.toLowerCase() !== contract.address.toLowerCase())
-        continue;
-
-      // ERC1155: TransferSingle
-      if (erc1155Abi.events.TransferSingle.is(log)) {
-        const { operator, from, to, id, amount } =
-          erc1155Abi.events.TransferSingle.decode(log);
-        if (from.toLowerCase() === ZERO_ADDRESS) {
-          mctx.queue.push(async () => {
-            await saveMintActivity(
-              mctx,
-              to,
-              contract.address,
-              "ERC1155",
-              id,
-              amount,
-              1n,
-              timestamp,
-              blockNumber,
-              log.transactionHash,
-              operator,
-              log
-            );
-          });
-        }
-      }
-      // ERC1155: TransferBatch
-      else if (erc1155Abi.events.TransferBatch.is(log)) {
-        const { operator, from, to, ids, amounts } =
-          erc1155Abi.events.TransferBatch.decode(log);
-        if (from.toLowerCase() === ZERO_ADDRESS) {
-          mctx.queue.push(async () => {
-            for (let i = 0; i < ids.length; i++) {
-              await saveMintActivity(
-                mctx,
-                to,
-                contract.address,
-                "ERC1155",
-                ids[i],
-                amounts[i],
-                1n,
-                timestamp,
-                blockNumber,
-                log.transactionHash,
-                operator,
-                log
-              );
-            }
-          });
-        }
+  // ERC1155: TransferSingle
+  if (erc1155Abi.events.TransferSingle.is(log)) {
+    const { operator, from, to, id, amount } =
+      erc1155Abi.events.TransferSingle.decode(log);
+    if (from.toLowerCase() === ZERO_ADDRESS) {
+      await saveMintActivity(
+        mctx,
+        to,
+        contractAddress,
+        "ERC1155",
+        id,
+        amount,
+        1n,
+        timestamp,
+        blockNumber,
+        log.transactionHash,
+        operator,
+        log
+      );
+    }
+  }
+  // ERC1155: TransferBatch
+  else if (erc1155Abi.events.TransferBatch.is(log)) {
+    const { operator, from, to, ids, amounts } =
+      erc1155Abi.events.TransferBatch.decode(log);
+    if (from.toLowerCase() === ZERO_ADDRESS) {
+      for (let i = 0; i < ids.length; i++) {
+        await saveMintActivity(
+          mctx,
+          to,
+          contractAddress,
+          "ERC1155",
+          ids[i],
+          amounts[i],
+          1n,
+          timestamp,
+          blockNumber,
+          log.transactionHash,
+          operator,
+          log
+        );
       }
     }
   }
+}
 
-  for (const contractType of ERC721_CONTRACTS) {
-    const contract = CONTRACTS[contractType];
-    if (!contract || contract.network !== chain) continue;
-
-    for (let log of block.logs) {
-      if (log.address.toLowerCase() !== contract.address.toLowerCase())
-        continue;
-
-      // ERC721: Transfer
-      if (erc721Abi.events.Transfer.is(log)) {
-        const { from, to, id } = erc721Abi.events.Transfer.decode(log);
-        if (from.toLowerCase() === ZERO_ADDRESS) {
-          mctx.queue.push(async () => {
-            await saveMintActivity(
-              mctx,
-              to,
-              contract.address,
-              "ERC721",
-              id,
-              1n,
-              1n,
-              timestamp,
-              blockNumber,
-              log.transactionHash,
-              undefined,
-              log
-            );
-          });
-        }
-      }
+export async function handleERC721Mint(
+  mctx: any,
+  log: any,
+  contractAddress: string,
+  timestamp: bigint,
+  blockNumber: bigint
+) {
+  if (erc721Abi.events.Transfer.is(log)) {
+    const { from, to, id } = erc721Abi.events.Transfer.decode(log);
+    if (from.toLowerCase() === ZERO_ADDRESS) {
+      await saveMintActivity(
+        mctx,
+        to,
+        contractAddress,
+        "ERC721",
+        id,
+        1n,
+        1n,
+        timestamp,
+        blockNumber,
+        log.transactionHash,
+        undefined,
+        log
+      );
     }
   }
 }
 
 async function saveMintActivity(
-  mctx: MappingContext,
+  mctx: any,
   user: string,
   contract: string,
   tokenStandard: string,
