@@ -1,4 +1,5 @@
 import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, StringColumn as StringColumn_, BigIntColumn as BigIntColumn_} from "@subsquid/typeorm-store"
+import {ActivityType} from "./_activityType"
 
 @Entity_()
 export class MintActivity {
@@ -41,4 +42,7 @@ export class MintActivity {
 
     @BigIntColumn_({nullable: false})
     amountPaid!: bigint
+
+    @Column_("varchar", {length: 8, nullable: false})
+    activityType!: ActivityType
 }

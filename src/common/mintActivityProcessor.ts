@@ -1,7 +1,8 @@
 import * as erc1155Abi from "../abi/erc1155";
 import * as erc721Abi from "../abi/erc721";
+import * as seaportAbi from "../abi/seaport";
 import { ContractType } from "../constants";
-import { MintActivity } from "../model";
+import { ActivityType, MintActivity } from "../model";
 import { Context } from "./processorFactory";
 
 type Task = () => Promise<void>;
@@ -44,7 +45,8 @@ export async function handleERC1155Mint(
         blockNumber,
         log.transactionHash,
         operator,
-        log
+        log,
+        ActivityType.MINT
       );
     }
   }
@@ -66,7 +68,8 @@ export async function handleERC1155Mint(
           blockNumber,
           log.transactionHash,
           operator,
-          log
+          log,
+          ActivityType.MINT
         );
       }
     }
@@ -95,8 +98,74 @@ export async function handleERC721Mint(
         blockNumber,
         log.transactionHash,
         undefined,
-        log
+        log,
+        ActivityType.MINT
       );
+    }
+  }
+}
+
+export async function handleSeaportFulfill(
+  mctx: any,
+  log: any,
+  timestamp: bigint,
+  blockNumber: bigint
+) {
+  if (seaportAbi.events.OrderFulfilled.is(log)) {
+    const { offer, consideration, recipient } =
+      seaportAbi.events.OrderFulfilled.decode(log);
+    const miberaContract =
+      "0x6666397DFe9a8c469BF65dc744CB1C733416c420".toLowerCase();
+
+    // Calculate total amount paid in native token
+    let amountPaid = 0n;
+    for (const item of consideration) {
+      if (item.itemType === 0) {
+        // Native token (ETH)
+        amountPaid += BigInt(item.amount);
+      }
+    }
+
+    // Look for MIBERA tokens in the offer items (represents a purchase)
+    for (const item of offer) {
+      if (item.token.toLowerCase() === miberaContract) {
+        await saveMintActivity(
+          mctx,
+          recipient,
+          miberaContract,
+          "ERC721",
+          BigInt(item.identifier),
+          1n,
+          1n,
+          timestamp,
+          blockNumber,
+          log.transactionHash,
+          undefined,
+          { transaction: { value: amountPaid.toString() } },
+          ActivityType.PURCHASE
+        );
+      }
+    }
+
+    // Check consideration items (represents a sale)
+    for (const item of consideration) {
+      if (item.token.toLowerCase() === miberaContract) {
+        await saveMintActivity(
+          mctx,
+          item.recipient,
+          miberaContract,
+          "ERC721",
+          BigInt(item.identifier),
+          1n,
+          1n,
+          timestamp,
+          blockNumber,
+          log.transactionHash,
+          undefined,
+          { transaction: { value: amountPaid.toString() } },
+          ActivityType.SALE
+        );
+      }
     }
   }
 }
@@ -113,7 +182,8 @@ async function saveMintActivity(
   blockNumber: bigint,
   txHash: string,
   operator: string | undefined,
-  log: any
+  log: any,
+  activityType: ActivityType
 ) {
   // Get the transaction value (amount paid in native token)
   const amountPaid = log.transaction?.value
@@ -134,6 +204,7 @@ async function saveMintActivity(
     txHash,
     operator: operator ? operator.toLowerCase() : undefined,
     amountPaid,
+    activityType,
   });
   await mctx.store.save(mint);
 }

@@ -1,6 +1,8 @@
 type User @entity {
   id: ID! # User address
   loans: [Loan!]! @derivedFrom(field: "user")
+  proposedTrades: [Trade!]! @derivedFrom(field: "proposer")
+  acceptedTrades: [Trade!]! @derivedFrom(field: "acceptor")
 }
 
 type Loan @entity {
@@ -18,6 +20,24 @@ enum LoanStatus {
   ACTIVE
   EXPIRED
   PAID_BACK
+}
+
+type Trade @entity {
+  id: ID! # Combination of offeredTokenId and timestamp
+  proposer: User!
+  acceptor: User
+  offeredTokenId: BigInt!
+  requestedTokenId: BigInt!
+  status: TradeStatus!
+  proposedAt: DateTime!
+  completedAt: DateTime
+  chain: String! # The blockchain network
+}
+
+enum TradeStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
 }
 
 type DailyRFV @entity {
@@ -68,4 +88,11 @@ type MintActivity @entity {
   txHash: String!
   operator: String
   amountPaid: BigInt! # Native token paid (in wei)
+  activityType: ActivityType! # Type of activity (MINT, SALE, PURCHASE)
+}
+
+enum ActivityType {
+  MINT # Regular mint from contract
+  SALE # Selling through marketplace
+  PURCHASE # Buying through marketplace
 }

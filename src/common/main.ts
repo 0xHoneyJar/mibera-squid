@@ -1,5 +1,6 @@
 import * as erc1155Abi from "../abi/erc1155";
 import * as erc721Abi from "../abi/erc721";
+import * as miberaTradeAbi from "../abi/miberaTrade";
 import * as treasuryAbi from "../abi/treasury";
 import {
   processBackingLoanExpired,
@@ -12,17 +13,24 @@ import {
   processRFVChanged,
 } from "./loanProcessor";
 
+import { StoreWithCache } from "@belopash/typeorm-store";
 import { CHAINS, CONTRACTS, ContractType } from "../constants";
-import { AvailableToken, DailyRFV, Loan, User } from "../model";
+import { AvailableToken, DailyRFV, Loan, Trade, User } from "../model";
+import { TaskQueue } from "../utils/queue";
 import { processLoanReceived } from "./loanProcessor";
 import { handleERC1155Mint, handleERC721Mint } from "./mintActivityProcessor";
 import { handleTransferBatch, handleTransferSingle } from "./orderProcessor";
-import { Context } from "./processorFactory";
+import { Context, ProcessorContext } from "./processorFactory";
+import {
+  processTradeAccepted,
+  processTradeCancelled,
+  processTradeProposed,
+} from "./tradeProcessor";
+
 export type Task = () => Promise<void>;
 
-export type MappingContext = Context & {
-  store: any;
-  queue: Task[];
+export type MappingContext = ProcessorContext<StoreWithCache> & {
+  queue: TaskQueue;
 };
 
 export function createMultiChainMain() {
@@ -41,7 +49,7 @@ export function createMain(chain: CHAINS) {
 
 async function processChain(ctx: Context, chain: CHAINS) {
   // Process loan events
-  await processAllEvents({ ...ctx, queue: [] }, chain);
+  await processAllEvents({ ...ctx, queue: new TaskQueue() }, chain);
 }
 
 export async function processAllEvents(mctx: MappingContext, chain: CHAINS) {
@@ -53,6 +61,8 @@ export async function processAllEvents(mctx: MappingContext, chain: CHAINS) {
     fractureV1: CONTRACTS[ContractType.FractureV1]?.address.toLowerCase(),
     fractureV2: CONTRACTS[ContractType.FractureV2]?.address.toLowerCase(),
     fractureV3: CONTRACTS[ContractType.FractureV3]?.address.toLowerCase(),
+    fractureV4: CONTRACTS[ContractType.FractureV4]?.address.toLowerCase(),
+    trade: CONTRACTS[ContractType.MiberaTrade]?.address.toLowerCase(),
   };
 
   const entities = {
@@ -60,6 +70,7 @@ export async function processAllEvents(mctx: MappingContext, chain: CHAINS) {
     loans: new Map<string, Loan>(),
     dailyRFVs: new Map<string, DailyRFV>(),
     availableTokens: new Map<string, AvailableToken>(),
+    trades: new Map<string, Trade>(),
   };
 
   for (let block of mctx.blocks) {
@@ -69,8 +80,19 @@ export async function processAllEvents(mctx: MappingContext, chain: CHAINS) {
     for (let log of block.logs) {
       const addr = log.address.toLowerCase();
 
+      // Trade events
+      if (addr === addresses.trade) {
+        if (miberaTradeAbi.events.TradeProposed.is(log)) {
+          await processTradeProposed(log, mctx, entities, block.header, chain);
+        } else if (miberaTradeAbi.events.TradeAccepted.is(log)) {
+          await processTradeAccepted(log, mctx, entities, block.header);
+        } else if (miberaTradeAbi.events.TradeCancelled.is(log)) {
+          await processTradeCancelled(log, mctx, entities, block.header);
+        }
+      }
+
       // Treasury events
-      if (addr === addresses.treasury) {
+      else if (addr === addresses.treasury) {
         // Process loan received events
         if (treasuryAbi.events.LoanReceived.is(log)) {
           await processLoanReceived(log, mctx, entities, block.header);
@@ -173,7 +195,8 @@ export async function processAllEvents(mctx: MappingContext, chain: CHAINS) {
         addr === addresses.vending ||
         addr === addresses.fractureV1 ||
         addr === addresses.fractureV2 ||
-        addr === addresses.fractureV3
+        addr === addresses.fractureV3 ||
+        addr === addresses.fractureV4
       ) {
         if (erc721Abi.events.Transfer.is(log)) {
           await handleERC721Mint(mctx, log, addr, timestamp, blockNumber);
@@ -182,7 +205,10 @@ export async function processAllEvents(mctx: MappingContext, chain: CHAINS) {
     }
   }
 
-  for (let task of mctx.queue) {
-    await task();
-  }
+  await mctx.store.save(Array.from(entities.users.values()));
+  await mctx.store.save(Array.from(entities.loans.values()));
+  await mctx.store.save(Array.from(entities.dailyRFVs.values()));
+  await mctx.store.save(Array.from(entities.availableTokens.values()));
+  await mctx.store.save(Array.from(entities.trades.values()));
+  await mctx.queue.run();
 }

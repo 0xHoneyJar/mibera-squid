@@ -8,8 +8,11 @@ import {
   EvmBatchProcessorFields,
 } from "@subsquid/evm-processor";
 import { assertNotNull } from "@subsquid/util-internal";
+import { zeroAddress } from "viem";
 import * as erc1155Abi from "../abi/erc1155";
 import * as erc721Abi from "../abi/erc721";
+import * as miberaTradeAbi from "../abi/miberaTrade";
+import * as seaportAbi from "../abi/seaport";
 import * as treasuryAbi from "../abi/treasury";
 import {
   CHAIN_NODE_URLS,
@@ -27,6 +30,9 @@ export function createProcessor(chain: CHAINS) {
   const fractureV1Contract = CONTRACTS[ContractType.FractureV1];
   const fractureV2Contract = CONTRACTS[ContractType.FractureV2];
   const fractureV3Contract = CONTRACTS[ContractType.FractureV3];
+  const fractureV4Contract = CONTRACTS[ContractType.FractureV4];
+  const seaportContract = CONTRACTS[ContractType.Seaport];
+  const miberaTradeContract = CONTRACTS[ContractType.MiberaTrade];
 
   const processor = new EvmBatchProcessor();
   processor
@@ -71,6 +77,19 @@ export function createProcessor(chain: CHAINS) {
     });
   }
 
+  // Add Trade contract events if configured
+  if (miberaTradeContract && miberaTradeContract.network === chain) {
+    processor.addLog({
+      address: [miberaTradeContract.address],
+      range: { from: miberaTradeContract.startBlock },
+      topic0: [
+        miberaTradeAbi.events.TradeProposed.topic,
+        miberaTradeAbi.events.TradeAccepted.topic,
+        miberaTradeAbi.events.TradeCancelled.topic,
+      ],
+    });
+  }
+
   if (candiesContract && candiesContract.network === chain) {
     processor.addLog({
       address: [candiesContract.address],
@@ -79,6 +98,7 @@ export function createProcessor(chain: CHAINS) {
         erc1155Abi.events.TransferSingle.topic,
         erc1155Abi.events.TransferBatch.topic,
       ],
+      topic1: [formatAddressTopic(zeroAddress)],
       transaction: true,
     });
   }
@@ -89,6 +109,7 @@ export function createProcessor(chain: CHAINS) {
       address: [vendingMachineContract.address],
       range: { from: vendingMachineContract.startBlock },
       topic0: [erc721Abi.events.Transfer.topic],
+      topic1: [formatAddressTopic(zeroAddress)],
       transaction: true,
     });
   }
@@ -98,6 +119,7 @@ export function createProcessor(chain: CHAINS) {
       address: [fractureV1Contract.address],
       range: { from: fractureV1Contract.startBlock },
       topic0: [erc721Abi.events.Transfer.topic],
+      topic1: [formatAddressTopic(zeroAddress)],
       transaction: true,
     });
   }
@@ -107,6 +129,7 @@ export function createProcessor(chain: CHAINS) {
       address: [fractureV2Contract.address],
       range: { from: fractureV2Contract.startBlock },
       topic0: [erc721Abi.events.Transfer.topic],
+      topic1: [formatAddressTopic(zeroAddress)],
       transaction: true,
     });
   }
@@ -116,11 +139,36 @@ export function createProcessor(chain: CHAINS) {
       address: [fractureV3Contract.address],
       range: { from: fractureV3Contract.startBlock },
       topic0: [erc721Abi.events.Transfer.topic],
+      topic1: [formatAddressTopic(zeroAddress)],
+      transaction: true,
+    });
+  }
+
+  if (fractureV4Contract && fractureV4Contract.network === chain) {
+    processor.addLog({
+      address: [fractureV4Contract.address],
+      range: { from: fractureV4Contract.startBlock },
+      topic0: [erc721Abi.events.Transfer.topic],
+      topic1: [formatAddressTopic(zeroAddress)],
+      transaction: true,
+    });
+  }
+
+  // Add Seaport contract events if configured
+  if (seaportContract && seaportContract.network === chain) {
+    processor.addLog({
+      address: [seaportContract.address],
+      range: { from: seaportContract.startBlock },
+      topic0: [seaportAbi.events.OrderFulfilled.topic],
       transaction: true,
     });
   }
 
   return processor;
+}
+
+function formatAddressTopic(address: string): string {
+  return "0x" + address.replace("0x", "").padStart(64, "0").toLowerCase();
 }
 
 export type Fields = EvmBatchProcessorFields<

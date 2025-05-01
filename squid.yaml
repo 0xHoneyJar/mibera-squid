@@ -1,14 +1,12 @@
 manifestVersion: subsquid.io/v0.1
 name: mibera-squid
-version: 6
-description: A squid that indexes mibera presale claims
+version: 8
+description: A squid for all things Mibera
 build:
 deploy:
   env:
     RPC_BERACHAIN_HTTP: ${{ secrets.RPC_BERACHAIN_HTTP }}
     PORTAL_URL: ${{ addons.portal.berachain_mainnet.http }}
-  addons:
-    postgres:
   processor:
     - name: bera-processor
       cmd:
