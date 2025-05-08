@@ -2,8 +2,9 @@ manifestVersion: subsquid.io/v0.1
 name: mibera-squid
 version: 8
 description: A squid for all things Mibera
-build:
 deploy:
+  addons:
+    postgres:
   env:
     RPC_BERACHAIN_HTTP: ${{ secrets.RPC_BERACHAIN_HTTP }}
     PORTAL_URL: ${{ addons.portal.berachain_mainnet.http }}
@@ -18,6 +19,9 @@ deploy:
       - serve:prod
 scale:
   dedicated: true
+  processor:
+    profile: medium
   addons:
     postgres:
+      profile: medium
       storage: 10G

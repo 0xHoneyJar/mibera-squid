@@ -7,6 +7,7 @@ export enum ContractType {
   FractureV2 = "FractureV2",
   FractureV3 = "FractureV3",
   FractureV4 = "FractureV4",
+  FractureV5 = "FractureV5",
   Seaport = "Seaport",
   MiberaTrade = "MiberaTrade",
 }
@@ -63,6 +64,11 @@ export const CONTRACTS: {
   },
   [ContractType.FractureV4]: {
     address: "0x72DB992E18a1bf38111B1936DD723E82D0D96313",
+    network: CHAINS.BERACHAIN,
+    startBlock: 3837808,
+  },
+  [ContractType.FractureV5]: {
+    address: "0x3A00301B713be83EC54B7B4Fb0f86397d087E6d3",
     network: CHAINS.BERACHAIN,
     startBlock: 3837808,
   },

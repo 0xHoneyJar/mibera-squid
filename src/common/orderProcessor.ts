@@ -4,7 +4,7 @@ import { MappingContext } from "./main";
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 export async function handleTransferSingle(
-  mctx: MappingContext,
+  ctx: MappingContext,
   operator: string,
   from: string,
   to: string,
@@ -14,27 +14,70 @@ export async function handleTransferSingle(
   blockNumber: bigint,
   txHash: string
 ) {
-  if (from.toLowerCase() === ZERO_ADDRESS) {
-    const order = new Order({
-      id: `${txHash}-${tokenId.toString()}-${to.toLowerCase()}`,
-      user: to.toLowerCase(),
-      tokenId,
-      amount,
-      timestamp,
-      blockNumber,
-      txHash,
-      operator: operator.toLowerCase(),
-    });
-    await mctx.store.save(order);
+  const toAddress = to.toLowerCase();
+  const fromAddress = from.toLowerCase();
+  const balanceIdTo = `${toAddress}-${tokenId.toString()}`;
+  const balanceIdFrom = `${fromAddress}-${tokenId.toString()}`;
+
+  const balanceToDeferred = ctx.store.defer(UserTokenBalance, balanceIdTo);
+  let balanceFromDeferred: ReturnType<typeof ctx.store.defer> | undefined =
+    undefined;
+  if (fromAddress !== ZERO_ADDRESS) {
+    balanceFromDeferred = ctx.store.defer(UserTokenBalance, balanceIdFrom);
   }
-  await updateUserTokenBalance(mctx, to, tokenId, amount, true, timestamp);
-  if (from.toLowerCase() !== ZERO_ADDRESS) {
-    await updateUserTokenBalance(mctx, from, tokenId, amount, false, timestamp);
-  }
+
+  ctx.queue.add(async () => {
+    if (fromAddress === ZERO_ADDRESS) {
+      const order = new Order({
+        id: `${txHash}-${tokenId.toString()}-${toAddress}`,
+        user: toAddress,
+        tokenId,
+        amount,
+        timestamp,
+        blockNumber,
+        txHash,
+        operator: operator.toLowerCase(),
+      });
+      await ctx.store.upsert(order);
+    }
+
+    // Handle recipient balance
+    const balanceTo = await balanceToDeferred.getOrInsert(
+      () =>
+        new UserTokenBalance({
+          id: balanceIdTo,
+          user: toAddress,
+          tokenId,
+          balance: BigInt(0),
+          lastUpdatedAt: timestamp,
+        })
+    );
+    balanceTo.balance += amount;
+    balanceTo.lastUpdatedAt = timestamp;
+    await ctx.store.upsert(balanceTo);
+
+    // Handle sender balance if not minting
+    if (fromAddress !== ZERO_ADDRESS && balanceFromDeferred) {
+      const balanceFrom = await balanceFromDeferred.getOrInsert(
+        () =>
+          new UserTokenBalance({
+            id: balanceIdFrom,
+            user: fromAddress,
+            tokenId,
+            balance: BigInt(0),
+            lastUpdatedAt: timestamp,
+          })
+      );
+      balanceFrom.balance =
+        balanceFrom.balance > amount ? balanceFrom.balance - amount : BigInt(0);
+      balanceFrom.lastUpdatedAt = timestamp;
+      await ctx.store.upsert(balanceFrom);
+    }
+  });
 }
 
 export async function handleTransferBatch(
-  mctx: MappingContext,
+  ctx: MappingContext,
   operator: string,
   from: string,
   to: string,
@@ -44,61 +87,71 @@ export async function handleTransferBatch(
   blockNumber: bigint,
   txHash: string
 ) {
-  for (let i = 0; i < tokenIds.length; i++) {
-    const tokenId = tokenIds[i];
-    const amount = amounts[i];
-    if (from.toLowerCase() === ZERO_ADDRESS) {
-      const order = new Order({
-        id: `${txHash}-${tokenId.toString()}-${i}-${to.toLowerCase()}`,
-        user: to.toLowerCase(),
-        tokenId,
-        amount,
-        timestamp,
-        blockNumber,
-        txHash,
-        operator: operator.toLowerCase(),
-      });
-      await mctx.store.save(order);
-    }
-    await updateUserTokenBalance(mctx, to, tokenId, amount, true, timestamp);
-    if (from.toLowerCase() !== ZERO_ADDRESS) {
-      await updateUserTokenBalance(
-        mctx,
-        from,
-        tokenId,
-        amount,
-        false,
-        timestamp
-      );
-    }
-  }
-}
+  const toAddress = to.toLowerCase();
+  const fromAddress = from.toLowerCase();
 
-async function updateUserTokenBalance(
-  mctx: MappingContext,
-  user: string,
-  tokenId: bigint,
-  amount: bigint,
-  isAddition: boolean,
-  timestamp: bigint
-) {
-  const balanceId = `${user.toLowerCase()}-${tokenId.toString()}`;
-  let balance = await mctx.store.findOne(UserTokenBalance, {
-    where: { id: balanceId },
+  const balanceToDeferreds = tokenIds.map((tokenId) =>
+    ctx.store.defer(UserTokenBalance, `${toAddress}-${tokenId.toString()}`)
+  );
+  const balanceFromDeferreds = tokenIds.map((tokenId) =>
+    ctx.store.defer(UserTokenBalance, `${fromAddress}-${tokenId.toString()}`)
+  );
+
+  ctx.queue.add(async () => {
+    for (let i = 0; i < tokenIds.length; i++) {
+      const tokenId = tokenIds[i];
+      const amount = amounts[i];
+      const balanceIdTo = `${toAddress}-${tokenId.toString()}`;
+      const balanceIdFrom = `${fromAddress}-${tokenId.toString()}`;
+
+      if (fromAddress === ZERO_ADDRESS) {
+        const order = new Order({
+          id: `${txHash}-${tokenId.toString()}-${i}-${toAddress}`,
+          user: toAddress,
+          tokenId,
+          amount,
+          timestamp,
+          blockNumber,
+          txHash,
+          operator: operator.toLowerCase(),
+        });
+        await ctx.store.upsert(order);
+      }
+
+      // Handle recipient balance
+      const balanceTo = await balanceToDeferreds[i].getOrInsert(
+        () =>
+          new UserTokenBalance({
+            id: balanceIdTo,
+            user: toAddress,
+            tokenId,
+            balance: BigInt(0),
+            lastUpdatedAt: timestamp,
+          })
+      );
+      balanceTo.balance += amount;
+      balanceTo.lastUpdatedAt = timestamp;
+      await ctx.store.upsert(balanceTo);
+
+      // Handle sender balance if not minting
+      if (fromAddress !== ZERO_ADDRESS) {
+        const balanceFrom = await balanceFromDeferreds[i].getOrInsert(
+          () =>
+            new UserTokenBalance({
+              id: balanceIdFrom,
+              user: fromAddress,
+              tokenId,
+              balance: BigInt(0),
+              lastUpdatedAt: timestamp,
+            })
+        );
+        balanceFrom.balance =
+          balanceFrom.balance > amount
+            ? balanceFrom.balance - amount
+            : BigInt(0);
+        balanceFrom.lastUpdatedAt = timestamp;
+        await ctx.store.upsert(balanceFrom);
+      }
+    }
   });
-  if (!balance) {
-    balance = new UserTokenBalance({
-      id: balanceId,
-      user: user.toLowerCase(),
-      tokenId,
-      balance: BigInt(0),
-      lastUpdatedAt: timestamp,
-    });
-  }
-  balance.balance = isAddition
-    ? balance.balance + amount
-    : balance.balance - amount;
-  if (balance.balance < BigInt(0)) balance.balance = BigInt(0);
-  balance.lastUpdatedAt = timestamp;
-  await mctx.store.save(balance);
 }

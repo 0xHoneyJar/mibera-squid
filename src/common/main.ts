@@ -10,14 +10,13 @@ import {
   processItemPurchased,
   processItemRedeemed,
   processLoanItemSentBack,
+  processLoanReceived,
   processRFVChanged,
 } from "./loanProcessor";
 
 import { StoreWithCache } from "@belopash/typeorm-store";
 import { CHAINS, CONTRACTS, ContractType } from "../constants";
-import { AvailableToken, DailyRFV, Loan, Trade, User } from "../model";
 import { TaskQueue } from "../utils/queue";
-import { processLoanReceived } from "./loanProcessor";
 import { handleERC1155Mint, handleERC721Mint } from "./mintActivityProcessor";
 import { handleTransferBatch, handleTransferSingle } from "./orderProcessor";
 import { Context, ProcessorContext } from "./processorFactory";
@@ -48,12 +47,10 @@ export function createMain(chain: CHAINS) {
 }
 
 async function processChain(ctx: Context, chain: CHAINS) {
-  // Process loan events
   await processAllEvents({ ...ctx, queue: new TaskQueue() }, chain);
 }
 
-export async function processAllEvents(mctx: MappingContext, chain: CHAINS) {
-  // Get contract addresses for quick comparison
+export async function processAllEvents(ctx: MappingContext, chain: CHAINS) {
   const addresses = {
     treasury: CONTRACTS[ContractType.Treasury]?.address.toLowerCase(),
     candies: CONTRACTS[ContractType.Candies]?.address.toLowerCase(),
@@ -62,18 +59,11 @@ export async function processAllEvents(mctx: MappingContext, chain: CHAINS) {
     fractureV2: CONTRACTS[ContractType.FractureV2]?.address.toLowerCase(),
     fractureV3: CONTRACTS[ContractType.FractureV3]?.address.toLowerCase(),
     fractureV4: CONTRACTS[ContractType.FractureV4]?.address.toLowerCase(),
+    fractureV5: CONTRACTS[ContractType.FractureV5]?.address.toLowerCase(),
     trade: CONTRACTS[ContractType.MiberaTrade]?.address.toLowerCase(),
   };
 
-  const entities = {
-    users: new Map<string, User>(),
-    loans: new Map<string, Loan>(),
-    dailyRFVs: new Map<string, DailyRFV>(),
-    availableTokens: new Map<string, AvailableToken>(),
-    trades: new Map<string, Trade>(),
-  };
-
-  for (let block of mctx.blocks) {
+  for (let block of ctx.blocks) {
     const blockNumber = BigInt(block.header.height);
     const timestamp = BigInt(block.header.timestamp);
 
@@ -83,63 +73,46 @@ export async function processAllEvents(mctx: MappingContext, chain: CHAINS) {
       // Trade events
       if (addr === addresses.trade) {
         if (miberaTradeAbi.events.TradeProposed.is(log)) {
-          await processTradeProposed(log, mctx, entities, block.header, chain);
+          console.log("Processing TradeProposed event");
+          await processTradeProposed(log, ctx, block.header, chain);
         } else if (miberaTradeAbi.events.TradeAccepted.is(log)) {
-          await processTradeAccepted(log, mctx, entities, block.header);
+          console.log("Processing TradeAccepted event");
+          await processTradeAccepted(log, ctx, block.header);
         } else if (miberaTradeAbi.events.TradeCancelled.is(log)) {
-          await processTradeCancelled(log, mctx, entities, block.header);
+          console.log("Processing TradeCancelled event");
+          await processTradeCancelled(log, ctx, block.header);
         }
       }
 
       // Treasury events
       else if (addr === addresses.treasury) {
-        // Process loan received events
         if (treasuryAbi.events.LoanReceived.is(log)) {
-          await processLoanReceived(log, mctx, entities, block.header);
-        }
-        // Process loan expired events
-        else if (treasuryAbi.events.BackingLoanExpired.is(log)) {
-          await processBackingLoanExpired(log, mctx, entities, block.header);
-        }
-        // Process loan payback events
-        else if (treasuryAbi.events.BackingLoanPayedBack.is(log)) {
-          await processBackingLoanPayedBack(log, mctx, entities, block.header);
-        }
-        // Process RFV changed events
-        else if (treasuryAbi.events.RFVChanged.is(log)) {
-          await processRFVChanged(log, mctx, entities, block.header);
-        }
-        // Process item redeemed events (token comes into treasury)
-        else if (treasuryAbi.events.ItemRedeemed.is(log)) {
-          await processItemRedeemed(log, mctx, entities, block.header, chain);
-        }
-        // Process item purchased events (token leaves treasury)
-        else if (treasuryAbi.events.ItemPurchased.is(log)) {
-          await processItemPurchased(log, mctx, entities, block.header, chain);
-        }
-        // Process item loaned events (token leaves treasury temporarily)
-        else if (treasuryAbi.events.ItemLoaned.is(log)) {
-          await processItemLoaned(log, mctx, entities, block.header, chain);
-        }
-        // Process loan item sent back events (token returns to treasury)
-        else if (treasuryAbi.events.LoanItemSentBack.is(log)) {
-          await processLoanItemSentBack(
-            log,
-            mctx,
-            entities,
-            block.header,
-            chain
-          );
-        }
-        // Process item loan expired events (token no longer in treasury)
-        else if (treasuryAbi.events.ItemLoanExpired.is(log)) {
-          await processItemLoanExpired(
-            log,
-            mctx,
-            entities,
-            block.header,
-            chain
-          );
+          console.log("Processing LoanReceived event");
+          await processLoanReceived(log, ctx, block.header);
+        } else if (treasuryAbi.events.BackingLoanExpired.is(log)) {
+          console.log("Processing BackingLoanExpired event");
+          await processBackingLoanExpired(log, ctx, block.header);
+        } else if (treasuryAbi.events.BackingLoanPayedBack.is(log)) {
+          console.log("Processing BackingLoanPayedBack event");
+          await processBackingLoanPayedBack(log, ctx, block.header);
+        } else if (treasuryAbi.events.RFVChanged.is(log)) {
+          console.log("Processing RFVChanged event");
+          await processRFVChanged(log, ctx, block.header);
+        } else if (treasuryAbi.events.ItemRedeemed.is(log)) {
+          console.log("Processing ItemRedeemed event");
+          await processItemRedeemed(log, ctx, block.header, chain);
+        } else if (treasuryAbi.events.ItemPurchased.is(log)) {
+          console.log("Processing ItemPurchased event");
+          await processItemPurchased(log, ctx, block.header, chain);
+        } else if (treasuryAbi.events.ItemLoaned.is(log)) {
+          console.log("Processing ItemLoaned event");
+          await processItemLoaned(log, ctx, block.header, chain);
+        } else if (treasuryAbi.events.LoanItemSentBack.is(log)) {
+          console.log("Processing LoanItemSentBack event");
+          await processLoanItemSentBack(log, ctx, block.header, chain);
+        } else if (treasuryAbi.events.ItemLoanExpired.is(log)) {
+          console.log("Processing ItemLoanExpired event");
+          await processItemLoanExpired(log, ctx, block.header, chain);
         }
       }
 
@@ -149,8 +122,9 @@ export async function processAllEvents(mctx: MappingContext, chain: CHAINS) {
           erc1155Abi.events.TransferSingle.is(log) ||
           erc1155Abi.events.TransferBatch.is(log)
         ) {
+          console.log("Processing ERC1155 Mint event");
           await handleERC1155Mint(
-            mctx,
+            ctx,
             log,
             addresses.candies,
             timestamp,
@@ -161,8 +135,9 @@ export async function processAllEvents(mctx: MappingContext, chain: CHAINS) {
         if (erc1155Abi.events.TransferSingle.is(log)) {
           const { operator, from, to, id, amount } =
             erc1155Abi.events.TransferSingle.decode(log);
+          console.log("Processing ERC1155 TransferSingle event");
           await handleTransferSingle(
-            mctx,
+            ctx,
             operator,
             from,
             to,
@@ -176,8 +151,9 @@ export async function processAllEvents(mctx: MappingContext, chain: CHAINS) {
         if (erc1155Abi.events.TransferBatch.is(log)) {
           const { operator, from, to, ids, amounts } =
             erc1155Abi.events.TransferBatch.decode(log);
+          console.log("Processing ERC1155 TransferBatch event");
           await handleTransferBatch(
-            mctx,
+            ctx,
             operator,
             from,
             to,
@@ -196,19 +172,16 @@ export async function processAllEvents(mctx: MappingContext, chain: CHAINS) {
         addr === addresses.fractureV1 ||
         addr === addresses.fractureV2 ||
         addr === addresses.fractureV3 ||
-        addr === addresses.fractureV4
+        addr === addresses.fractureV4 ||
+        addr === addresses.fractureV5
       ) {
         if (erc721Abi.events.Transfer.is(log)) {
-          await handleERC721Mint(mctx, log, addr, timestamp, blockNumber);
+          console.log("Processing ERC721 Transfer event");
+          await handleERC721Mint(ctx, log, addr, timestamp, blockNumber);
         }
       }
     }
   }
 
-  await mctx.store.save(Array.from(entities.users.values()));
-  await mctx.store.save(Array.from(entities.loans.values()));
-  await mctx.store.save(Array.from(entities.dailyRFVs.values()));
-  await mctx.store.save(Array.from(entities.availableTokens.values()));
-  await mctx.store.save(Array.from(entities.trades.values()));
-  await mctx.queue.run();
+  await ctx.queue.run();
 }

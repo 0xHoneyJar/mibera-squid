@@ -3,13 +3,7 @@ import * as erc721Abi from "../abi/erc721";
 import * as seaportAbi from "../abi/seaport";
 import { ContractType } from "../constants";
 import { ActivityType, MintActivity } from "../model";
-import { Context } from "./processorFactory";
-
-type Task = () => Promise<void>;
-type MappingContext = Context & {
-  store: any;
-  queue: Task[];
-};
+import { MappingContext } from "./main";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
@@ -22,7 +16,7 @@ const ERC721_CONTRACTS = [
 ];
 
 export async function handleERC1155Mint(
-  mctx: any,
+  ctx: MappingContext,
   log: any,
   contractAddress: string,
   timestamp: bigint,
@@ -33,21 +27,30 @@ export async function handleERC1155Mint(
     const { operator, from, to, id, amount } =
       erc1155Abi.events.TransferSingle.decode(log);
     if (from.toLowerCase() === ZERO_ADDRESS) {
-      await saveMintActivity(
-        mctx,
-        to,
-        contractAddress,
-        "ERC1155",
-        id,
-        amount,
-        1n,
-        timestamp,
-        blockNumber,
-        log.transactionHash,
-        operator,
-        log,
-        ActivityType.MINT
-      );
+      const mintId = `${
+        log.transactionHash
+      }-${id.toString()}-${to.toLowerCase()}`;
+
+      ctx.queue.add(async () => {
+        const mint = new MintActivity({
+          id: mintId,
+          user: to.toLowerCase(),
+          contract: contractAddress.toLowerCase(),
+          tokenStandard: "ERC1155",
+          tokenId: id,
+          amount,
+          quantity: 1n,
+          timestamp,
+          blockNumber,
+          txHash: log.transactionHash,
+          operator: operator?.toLowerCase(),
+          amountPaid: log.transaction?.value
+            ? BigInt(log.transaction.value)
+            : 0n,
+          activityType: ActivityType.MINT,
+        });
+        await ctx.store.upsert(mint);
+      });
     }
   }
   // ERC1155: TransferBatch
@@ -56,28 +59,37 @@ export async function handleERC1155Mint(
       erc1155Abi.events.TransferBatch.decode(log);
     if (from.toLowerCase() === ZERO_ADDRESS) {
       for (let i = 0; i < ids.length; i++) {
-        await saveMintActivity(
-          mctx,
-          to,
-          contractAddress,
-          "ERC1155",
-          ids[i],
-          amounts[i],
-          1n,
-          timestamp,
-          blockNumber,
-          log.transactionHash,
-          operator,
-          log,
-          ActivityType.MINT
-        );
+        const mintId = `${log.transactionHash}-${ids[
+          i
+        ].toString()}-${to.toLowerCase()}`;
+
+        ctx.queue.add(async () => {
+          const mint = new MintActivity({
+            id: mintId,
+            user: to.toLowerCase(),
+            contract: contractAddress.toLowerCase(),
+            tokenStandard: "ERC1155",
+            tokenId: ids[i],
+            amount: amounts[i],
+            quantity: 1n,
+            timestamp,
+            blockNumber,
+            txHash: log.transactionHash,
+            operator: operator?.toLowerCase(),
+            amountPaid: log.transaction?.value
+              ? BigInt(log.transaction.value)
+              : 0n,
+            activityType: ActivityType.MINT,
+          });
+          await ctx.store.upsert(mint);
+        });
       }
     }
   }
 }
 
 export async function handleERC721Mint(
-  mctx: any,
+  ctx: MappingContext,
   log: any,
   contractAddress: string,
   timestamp: bigint,
@@ -86,27 +98,36 @@ export async function handleERC721Mint(
   if (erc721Abi.events.Transfer.is(log)) {
     const { from, to, id } = erc721Abi.events.Transfer.decode(log);
     if (from.toLowerCase() === ZERO_ADDRESS) {
-      await saveMintActivity(
-        mctx,
-        to,
-        contractAddress,
-        "ERC721",
-        id,
-        1n,
-        1n,
-        timestamp,
-        blockNumber,
-        log.transactionHash,
-        undefined,
-        log,
-        ActivityType.MINT
-      );
+      const mintId = `${
+        log.transactionHash
+      }-${id.toString()}-${to.toLowerCase()}`;
+
+      ctx.queue.add(async () => {
+        const mint = new MintActivity({
+          id: mintId,
+          user: to.toLowerCase(),
+          contract: contractAddress.toLowerCase(),
+          tokenStandard: "ERC721",
+          tokenId: id,
+          amount: 1n,
+          quantity: 1n,
+          timestamp,
+          blockNumber,
+          txHash: log.transactionHash,
+          operator: undefined,
+          amountPaid: log.transaction?.value
+            ? BigInt(log.transaction.value)
+            : 0n,
+          activityType: ActivityType.MINT,
+        });
+        await ctx.store.upsert(mint);
+      });
     }
   }
 }
 
 export async function handleSeaportFulfill(
-  mctx: any,
+  ctx: MappingContext,
   log: any,
   timestamp: bigint,
   blockNumber: bigint
@@ -129,82 +150,57 @@ export async function handleSeaportFulfill(
     // Look for MIBERA tokens in the offer items (represents a purchase)
     for (const item of offer) {
       if (item.token.toLowerCase() === miberaContract) {
-        await saveMintActivity(
-          mctx,
-          recipient,
-          miberaContract,
-          "ERC721",
-          BigInt(item.identifier),
-          1n,
-          1n,
-          timestamp,
-          blockNumber,
-          log.transactionHash,
-          undefined,
-          { transaction: { value: amountPaid.toString() } },
-          ActivityType.PURCHASE
-        );
+        const mintId = `${log.transactionHash}-${
+          item.identifier
+        }-${recipient.toLowerCase()}-purchase`;
+
+        ctx.queue.add(async () => {
+          const mint = new MintActivity({
+            id: mintId,
+            user: recipient.toLowerCase(),
+            contract: miberaContract,
+            tokenStandard: "ERC721",
+            tokenId: BigInt(item.identifier),
+            amount: 1n,
+            quantity: 1n,
+            timestamp,
+            blockNumber,
+            txHash: log.transactionHash,
+            operator: undefined,
+            amountPaid,
+            activityType: ActivityType.PURCHASE,
+          });
+          await ctx.store.upsert(mint);
+        });
       }
     }
 
     // Check consideration items (represents a sale)
     for (const item of consideration) {
       if (item.token.toLowerCase() === miberaContract) {
-        await saveMintActivity(
-          mctx,
-          item.recipient,
-          miberaContract,
-          "ERC721",
-          BigInt(item.identifier),
-          1n,
-          1n,
-          timestamp,
-          blockNumber,
-          log.transactionHash,
-          undefined,
-          { transaction: { value: amountPaid.toString() } },
-          ActivityType.SALE
-        );
+        const mintId = `${log.transactionHash}-${
+          item.identifier
+        }-${item.recipient.toLowerCase()}-sale`;
+
+        ctx.queue.add(async () => {
+          const mint = new MintActivity({
+            id: mintId,
+            user: item.recipient.toLowerCase(),
+            contract: miberaContract,
+            tokenStandard: "ERC721",
+            tokenId: BigInt(item.identifier),
+            amount: 1n,
+            quantity: 1n,
+            timestamp,
+            blockNumber,
+            txHash: log.transactionHash,
+            operator: undefined,
+            amountPaid,
+            activityType: ActivityType.SALE,
+          });
+          await ctx.store.upsert(mint);
+        });
       }
     }
   }
-}
-
-async function saveMintActivity(
-  mctx: any,
-  user: string,
-  contract: string,
-  tokenStandard: string,
-  tokenId: bigint,
-  amount: bigint,
-  quantity: bigint,
-  timestamp: bigint,
-  blockNumber: bigint,
-  txHash: string,
-  operator: string | undefined,
-  log: any,
-  activityType: ActivityType
-) {
-  // Get the transaction value (amount paid in native token)
-  const amountPaid = log.transaction?.value
-    ? BigInt(log.transaction.value)
-    : 0n;
-
-  const id = `${txHash}-${tokenId?.toString() || ""}-${user.toLowerCase()}`;
-  const mint = new MintActivity({
-    id,
-    user: user.toLowerCase(),
-    contract: contract.toLowerCase(),
-    tokenStandard,
-    tokenId,
-    amount,
-    quantity,
-    timestamp,
-    blockNumber,
-    txHash,
-    operator: operator ? operator.toLowerCase() : undefined,
-    amountPaid,
-    activityType,
-  });
-  await mctx.store.save(mint);
 }

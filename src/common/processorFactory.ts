@@ -31,6 +31,7 @@ export function createProcessor(chain: CHAINS) {
   const fractureV2Contract = CONTRACTS[ContractType.FractureV2];
   const fractureV3Contract = CONTRACTS[ContractType.FractureV3];
   const fractureV4Contract = CONTRACTS[ContractType.FractureV4];
+  const fractureV5Contract = CONTRACTS[ContractType.FractureV5];
   const seaportContract = CONTRACTS[ContractType.Seaport];
   const miberaTradeContract = CONTRACTS[ContractType.MiberaTrade];
 
@@ -148,6 +149,16 @@ export function createProcessor(chain: CHAINS) {
     processor.addLog({
       address: [fractureV4Contract.address],
       range: { from: fractureV4Contract.startBlock },
+      topic0: [erc721Abi.events.Transfer.topic],
+      topic1: [formatAddressTopic(zeroAddress)],
+      transaction: true,
+    });
+  }
+
+  if (fractureV5Contract && fractureV5Contract.network === chain) {
+    processor.addLog({
+      address: [fractureV5Contract.address],
+      range: { from: fractureV5Contract.startBlock },
       topic0: [erc721Abi.events.Transfer.topic],
       topic1: [formatAddressTopic(zeroAddress)],
       transaction: true,
