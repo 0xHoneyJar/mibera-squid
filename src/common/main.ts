@@ -1,6 +1,7 @@
 import * as erc1155Abi from "../abi/erc1155";
 import * as erc721Abi from "../abi/erc721";
 import * as miberaTradeAbi from "../abi/miberaTrade";
+import * as seaportAbi from "../abi/seaport";
 import * as treasuryAbi from "../abi/treasury";
 import {
   processBackingLoanExpired,
@@ -17,7 +18,11 @@ import {
 import { StoreWithCache } from "@belopash/typeorm-store";
 import { CHAINS, CONTRACTS, ContractType } from "../constants";
 import { TaskQueue } from "../utils/queue";
-import { handleERC1155Mint, handleERC721Mint } from "./mintActivityProcessor";
+import {
+  handleERC1155Mint,
+  handleERC721Mint,
+  handleSeaportFulfill,
+} from "./mintActivityProcessor";
 import { handleTransferBatch, handleTransferSingle } from "./orderProcessor";
 import { Context, ProcessorContext } from "./processorFactory";
 import {
@@ -60,7 +65,10 @@ export async function processAllEvents(ctx: MappingContext, chain: CHAINS) {
     fractureV3: CONTRACTS[ContractType.FractureV3]?.address.toLowerCase(),
     fractureV4: CONTRACTS[ContractType.FractureV4]?.address.toLowerCase(),
     fractureV5: CONTRACTS[ContractType.FractureV5]?.address.toLowerCase(),
+    fractureV6: CONTRACTS[ContractType.FractureV6]?.address.toLowerCase(),
+    fractureV7: CONTRACTS[ContractType.FractureV7]?.address.toLowerCase(),
     trade: CONTRACTS[ContractType.MiberaTrade]?.address.toLowerCase(),
+    seaport: CONTRACTS[ContractType.Seaport]?.address.toLowerCase(),
   };
 
   for (let block of ctx.blocks) {
@@ -173,11 +181,21 @@ export async function processAllEvents(ctx: MappingContext, chain: CHAINS) {
         addr === addresses.fractureV2 ||
         addr === addresses.fractureV3 ||
         addr === addresses.fractureV4 ||
-        addr === addresses.fractureV5
+        addr === addresses.fractureV5 ||
+        addr === addresses.fractureV6 ||
+        addr === addresses.fractureV7
       ) {
         if (erc721Abi.events.Transfer.is(log)) {
           console.log("Processing ERC721 Transfer event");
           await handleERC721Mint(ctx, log, addr, timestamp, blockNumber);
+        }
+      }
+
+      // Seaport
+      else if (addr === addresses.seaport) {
+        if (seaportAbi.events.OrderFulfilled.is(log)) {
+          console.log("Processing Seaport OrderFulfilled event");
+          await handleSeaportFulfill(ctx, log, timestamp, blockNumber);
         }
       }
     }

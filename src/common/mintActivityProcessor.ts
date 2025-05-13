@@ -1,3 +1,4 @@
+import { Log } from "@subsquid/evm-processor";
 import * as erc1155Abi from "../abi/erc1155";
 import * as erc721Abi from "../abi/erc721";
 import * as seaportAbi from "../abi/seaport";
@@ -17,7 +18,7 @@ const ERC721_CONTRACTS = [
 
 export async function handleERC1155Mint(
   ctx: MappingContext,
-  log: any,
+  log: Log,
   contractAddress: string,
   timestamp: bigint,
   blockNumber: bigint
@@ -28,8 +29,10 @@ export async function handleERC1155Mint(
       erc1155Abi.events.TransferSingle.decode(log);
     if (from.toLowerCase() === ZERO_ADDRESS) {
       const mintId = `${
-        log.transactionHash
+        log.transaction?.hash
       }-${id.toString()}-${to.toLowerCase()}`;
+
+      const transaction = log.transaction as any;
 
       ctx.queue.add(async () => {
         const mint = new MintActivity({
@@ -42,11 +45,9 @@ export async function handleERC1155Mint(
           quantity: 1n,
           timestamp,
           blockNumber,
-          txHash: log.transactionHash,
+          txHash: log.transaction?.hash,
           operator: operator?.toLowerCase(),
-          amountPaid: log.transaction?.value
-            ? BigInt(log.transaction.value)
-            : 0n,
+          amountPaid: transaction?.value ? BigInt(transaction.value) : 0n,
           activityType: ActivityType.MINT,
         });
         await ctx.store.upsert(mint);
@@ -59,9 +60,11 @@ export async function handleERC1155Mint(
       erc1155Abi.events.TransferBatch.decode(log);
     if (from.toLowerCase() === ZERO_ADDRESS) {
       for (let i = 0; i < ids.length; i++) {
-        const mintId = `${log.transactionHash}-${ids[
+        const mintId = `${log.transaction?.hash}-${ids[
           i
         ].toString()}-${to.toLowerCase()}`;
+
+        const transaction = log.transaction as any;
 
         ctx.queue.add(async () => {
           const mint = new MintActivity({
@@ -74,11 +77,9 @@ export async function handleERC1155Mint(
             quantity: 1n,
             timestamp,
             blockNumber,
-            txHash: log.transactionHash,
+            txHash: log.transaction?.hash,
             operator: operator?.toLowerCase(),
-            amountPaid: log.transaction?.value
-              ? BigInt(log.transaction.value)
-              : 0n,
+            amountPaid: transaction?.value ? BigInt(transaction.value) : 0n,
             activityType: ActivityType.MINT,
           });
           await ctx.store.upsert(mint);
@@ -90,7 +91,7 @@ export async function handleERC1155Mint(
 
 export async function handleERC721Mint(
   ctx: MappingContext,
-  log: any,
+  log: Log,
   contractAddress: string,
   timestamp: bigint,
   blockNumber: bigint
@@ -99,8 +100,10 @@ export async function handleERC721Mint(
     const { from, to, id } = erc721Abi.events.Transfer.decode(log);
     if (from.toLowerCase() === ZERO_ADDRESS) {
       const mintId = `${
-        log.transactionHash
+        log.transaction?.hash
       }-${id.toString()}-${to.toLowerCase()}`;
+
+      const transaction = log.transaction as any;
 
       ctx.queue.add(async () => {
         const mint = new MintActivity({
@@ -113,11 +116,9 @@ export async function handleERC721Mint(
           quantity: 1n,
           timestamp,
           blockNumber,
-          txHash: log.transactionHash,
+          txHash: log.transaction?.hash,
           operator: undefined,
-          amountPaid: log.transaction?.value
-            ? BigInt(log.transaction.value)
-            : 0n,
+          amountPaid: transaction?.value ? BigInt(transaction.value) : 0n,
           activityType: ActivityType.MINT,
         });
         await ctx.store.upsert(mint);
@@ -128,7 +129,7 @@ export async function handleERC721Mint(
 
 export async function handleSeaportFulfill(
   ctx: MappingContext,
-  log: any,
+  log: Log,
   timestamp: bigint,
   blockNumber: bigint
 ) {
@@ -137,12 +138,30 @@ export async function handleSeaportFulfill(
       seaportAbi.events.OrderFulfilled.decode(log);
     const miberaContract =
       "0x6666397DFe9a8c469BF65dc744CB1C733416c420".toLowerCase();
+    const wberaContract =
+      "0x6969696969696969696969696969696969696969".toLowerCase();
 
-    // Calculate total amount paid in native token
+    // Calculate total amount paid in native token and WBERA
     let amountPaid = 0n;
     for (const item of consideration) {
       if (item.itemType === 0) {
         // Native token (ETH)
+        amountPaid += BigInt(item.amount);
+      }
+
+      if (item.token.toLowerCase() === wberaContract) {
+        amountPaid += BigInt(item.amount);
+      }
+    }
+
+    // Add WBERA amounts from offer items
+    for (const item of offer) {
+      if (item.itemType === 0) {
+        // Native token (ETH)
+        amountPaid += BigInt(item.amount);
+      }
+
+      if (item.token.toLowerCase() === wberaContract) {
         amountPaid += BigInt(item.amount);
       }
     }
@@ -150,7 +169,7 @@ export async function handleSeaportFulfill(
     // Look for MIBERA tokens in the offer items (represents a purchase)
     for (const item of offer) {
       if (item.token.toLowerCase() === miberaContract) {
-        const mintId = `${log.transactionHash}-${
+        const mintId = `${log.transaction?.hash}-${
           item.identifier
         }-${recipient.toLowerCase()}-purchase`;
 
@@ -165,7 +184,7 @@ export async function handleSeaportFulfill(
             quantity: 1n,
             timestamp,
             blockNumber,
-            txHash: log.transactionHash,
+            txHash: log.transaction?.hash,
             operator: undefined,
             amountPaid,
             activityType: ActivityType.PURCHASE,
@@ -178,7 +197,7 @@ export async function handleSeaportFulfill(
     // Check consideration items (represents a sale)
     for (const item of consideration) {
       if (item.token.toLowerCase() === miberaContract) {
-        const mintId = `${log.transactionHash}-${
+        const mintId = `${log.transaction?.hash}-${
           item.identifier
         }-${item.recipient.toLowerCase()}-sale`;
 
@@ -193,7 +212,7 @@ export async function handleSeaportFulfill(
             quantity: 1n,
             timestamp,
             blockNumber,
-            txHash: log.transactionHash,
+            txHash: log.transaction?.hash,
             operator: undefined,
             amountPaid,
             activityType: ActivityType.SALE,
