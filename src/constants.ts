@@ -23,7 +23,7 @@ export const CHAIN_START_BLOCK = {
 } as const;
 
 export const CONTRACTS: {
-  [key in ContractType]: {
+  [key in ContractType]?: {
     address: string;
     network: CHAINS;
     startBlock: number;
@@ -35,9 +35,9 @@ export const CONTRACTS: {
     startBlock: 3971122,
   },
   [ContractType.Presale]: {
-    address: "0xdd5F6f41B250644E5678D77654309a5b6A5f4D55",
+    address: "0x...", // You'll need to fill in the actual address
     network: CHAINS.BERACHAIN,
-    startBlock: 2731326,
+    startBlock: 0, // You'll need to fill in the actual start block
   },
   [ContractType.Candies]: {
     address: "0xecA03517c5195F1edD634DA6D690D6c72407c40c",

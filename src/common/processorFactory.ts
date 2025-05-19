@@ -11,6 +11,7 @@ import { assertNotNull } from "@subsquid/util-internal";
 import { zeroAddress } from "viem";
 import * as erc1155Abi from "../abi/erc1155";
 import * as erc721Abi from "../abi/erc721";
+import * as presaleAbi from "../abi/miberaPresale";
 import * as miberaTradeAbi from "../abi/miberaTrade";
 import * as seaportAbi from "../abi/seaport";
 import * as treasuryAbi from "../abi/treasury";
@@ -192,6 +193,17 @@ export function createProcessor(chain: CHAINS) {
       range: { from: seaportContract.startBlock },
       topic0: [seaportAbi.events.OrderFulfilled.topic],
       transaction: true,
+    });
+  }
+
+  if (presaleContract && presaleContract.network === chain) {
+    processor.addLog({
+      address: [presaleContract.address],
+      range: { from: presaleContract.startBlock },
+      topic0: [
+        presaleAbi.events.Participated.topic,
+        presaleAbi.events.Refunded.topic,
+      ],
     });
   }
 

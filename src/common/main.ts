@@ -1,5 +1,6 @@
 import * as erc1155Abi from "../abi/erc1155";
 import * as erc721Abi from "../abi/erc721";
+import * as presaleAbi from "../abi/miberaPresale";
 import * as miberaTradeAbi from "../abi/miberaTrade";
 import * as seaportAbi from "../abi/seaport";
 import * as treasuryAbi from "../abi/treasury";
@@ -28,6 +29,7 @@ import {
   handleSingleOrder,
   ZERO_ADDRESS,
 } from "./orderProcessor";
+import { processParticipated, processRefunded } from "./presaleProcessor";
 import { Context, ProcessorContext } from "./processorFactory";
 import {
   processTradeAccepted,
@@ -73,6 +75,7 @@ export async function processAllEvents(ctx: MappingContext, chain: CHAINS) {
     fractureV7: CONTRACTS[ContractType.FractureV7]?.address.toLowerCase(),
     trade: CONTRACTS[ContractType.MiberaTrade]?.address.toLowerCase(),
     seaport: CONTRACTS[ContractType.Seaport]?.address.toLowerCase(),
+    presale: CONTRACTS[ContractType.Presale]?.address.toLowerCase(),
   };
 
   for (let block of ctx.blocks) {
@@ -212,6 +215,17 @@ export async function processAllEvents(ctx: MappingContext, chain: CHAINS) {
         if (seaportAbi.events.OrderFulfilled.is(log)) {
           console.log("Processing Seaport OrderFulfilled event");
           await handleSeaportFulfill(ctx, log, timestamp, blockNumber);
+        }
+      }
+
+      // Presale events
+      else if (addr === addresses.presale) {
+        if (presaleAbi.events.Participated.is(log)) {
+          console.log("Processing Presale Participated event");
+          await processParticipated(log, ctx, block.header, chain);
+        } else if (presaleAbi.events.Refunded.is(log)) {
+          console.log("Processing Presale Refunded event");
+          await processRefunded(log, ctx, block.header, chain);
         }
       }
     }
