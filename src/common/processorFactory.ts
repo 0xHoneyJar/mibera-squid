@@ -101,7 +101,7 @@ export function createProcessor(chain: CHAINS) {
         erc1155Abi.events.TransferSingle.topic,
         erc1155Abi.events.TransferBatch.topic,
       ],
-      topic1: [formatAddressTopic(zeroAddress)],
+      topic2: [formatAddressTopic(zeroAddress)],
       transaction: true,
     });
   }

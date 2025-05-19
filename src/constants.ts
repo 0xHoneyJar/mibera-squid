@@ -90,7 +90,7 @@ export const CONTRACTS: {
     startBlock: 3837808,
   },
   [ContractType.MiberaTrade]: {
-    address: "0x09456a8554BE9f08262eF8E0bCFbBBF33982d923",
+    address: "0x90485B61C9dA51A3c79fca1277899d9CD5D350c2",
     network: CHAINS.BERACHAIN,
     startBlock: 3837808,
   },

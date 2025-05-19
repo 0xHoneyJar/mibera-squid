@@ -23,7 +23,11 @@ import {
   handleERC721Mint,
   handleSeaportFulfill,
 } from "./mintActivityProcessor";
-import { handleTransferBatch, handleTransferSingle } from "./orderProcessor";
+import {
+  handleBatchOrder,
+  handleSingleOrder,
+  ZERO_ADDRESS,
+} from "./orderProcessor";
 import { Context, ProcessorContext } from "./processorFactory";
 import {
   processTradeAccepted,
@@ -143,8 +147,14 @@ export async function processAllEvents(ctx: MappingContext, chain: CHAINS) {
         if (erc1155Abi.events.TransferSingle.is(log)) {
           const { operator, from, to, id, amount } =
             erc1155Abi.events.TransferSingle.decode(log);
-          console.log("Processing ERC1155 TransferSingle event");
-          await handleTransferSingle(
+          console.log("Processing ERC1155 TransferSingle event", {
+            from,
+            to,
+            id: id.toString(),
+            amount: amount.toString(),
+            isMint: from.toLowerCase() === ZERO_ADDRESS.toLowerCase(),
+          });
+          await handleSingleOrder(
             ctx,
             operator,
             from,
@@ -159,8 +169,14 @@ export async function processAllEvents(ctx: MappingContext, chain: CHAINS) {
         if (erc1155Abi.events.TransferBatch.is(log)) {
           const { operator, from, to, ids, amounts } =
             erc1155Abi.events.TransferBatch.decode(log);
-          console.log("Processing ERC1155 TransferBatch event");
-          await handleTransferBatch(
+          console.log("Processing ERC1155 TransferBatch event", {
+            from,
+            to,
+            ids: ids.map((id) => id.toString()),
+            amounts: amounts.map((amount) => amount.toString()),
+            isMint: from.toLowerCase() === ZERO_ADDRESS.toLowerCase(),
+          });
+          await handleBatchOrder(
             ctx,
             operator,
             from,

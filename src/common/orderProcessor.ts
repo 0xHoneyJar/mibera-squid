@@ -1,9 +1,9 @@
 import { Order, UserTokenBalance } from "../model";
 import { MappingContext } from "./main";
 
-const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
-export async function handleTransferSingle(
+export async function handleSingleOrder(
   ctx: MappingContext,
   operator: string,
   from: string,
@@ -37,6 +37,12 @@ export async function handleTransferSingle(
         blockNumber,
         txHash,
         operator: operator.toLowerCase(),
+      });
+      console.log("Creating new order for mint:", {
+        id: order.id,
+        user: order.user,
+        tokenId: order.tokenId.toString(),
+        amount: order.amount.toString(),
       });
       await ctx.store.upsert(order);
     }
@@ -76,7 +82,7 @@ export async function handleTransferSingle(
   });
 }
 
-export async function handleTransferBatch(
+export async function handleBatchOrder(
   ctx: MappingContext,
   operator: string,
   from: string,
@@ -114,6 +120,13 @@ export async function handleTransferBatch(
           blockNumber,
           txHash,
           operator: operator.toLowerCase(),
+        });
+        console.log("Creating new order for batch mint:", {
+          id: order.id,
+          user: order.user,
+          tokenId: order.tokenId.toString(),
+          amount: order.amount.toString(),
+          index: i,
         });
         await ctx.store.upsert(order);
       }
