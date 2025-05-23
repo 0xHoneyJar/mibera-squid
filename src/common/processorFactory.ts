@@ -204,6 +204,7 @@ export function createProcessor(chain: CHAINS) {
         presaleAbi.events.Participated.topic,
         presaleAbi.events.Refunded.topic,
       ],
+      transaction: true,
     });
   }
 

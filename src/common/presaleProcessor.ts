@@ -20,17 +20,21 @@ export async function processParticipated(
   const blockNumber = BigInt(header.height);
   const timestamp = BigInt(header.timestamp);
   const userAddress = user.toLowerCase();
+  const txHash = log.transaction?.hash;
 
   // Queue participation creation
   ctx.queue.add(async () => {
+    // Generate a unique ID that includes phase to prevent overwriting
+    const participationId = `${txHash}-${userAddress}-phase${phase}`;
+
     const participation = new Participation({
-      id: `${log.transaction?.hash || ""}-${userAddress}`,
+      id: participationId,
       phase: Number(phase),
       user: userAddress,
       amount,
       timestamp,
       blockNumber,
-      txHash: log.transaction?.hash || "",
+      txHash,
     });
 
     await ctx.store.save(participation);
@@ -57,17 +61,21 @@ export async function processRefunded(
   const blockNumber = BigInt(header.height);
   const timestamp = BigInt(header.timestamp);
   const userAddress = user.toLowerCase();
+  const txHash = log.transaction?.hash;
 
   // Queue refund creation
   ctx.queue.add(async () => {
+    // Generate a unique ID that includes phase to prevent overwriting
+    const refundId = `${txHash}-${userAddress}-phase${phase}`;
+
     const refund = new Refund({
-      id: `${log.transaction?.hash || ""}-${userAddress}`,
+      id: refundId,
       phase: Number(phase),
       user: userAddress,
       amount,
       timestamp,
       blockNumber,
-      txHash: log.transaction?.hash || "",
+      txHash,
     });
 
     await ctx.store.save(refund);
@@ -148,7 +156,7 @@ async function updatePresaleStats(
     stats.totalParticipants += 1;
     stats.totalParticipationAmount += amount;
 
-    // Check for unique participant
+    // Check for unique participant across all phases
     const existingParticipations = await ctx.store.find(Participation, {
       where: { user },
       take: 2,

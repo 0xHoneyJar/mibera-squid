@@ -35,9 +35,9 @@ export const CONTRACTS: {
     startBlock: 3971122,
   },
   [ContractType.Presale]: {
-    address: "0x...", // You'll need to fill in the actual address
+    address: "0xC19F84e14646A2c4Eed8874016730F4D65A24F91", // You'll need to fill in the actual address
     network: CHAINS.BERACHAIN,
-    startBlock: 0, // You'll need to fill in the actual start block
+    startBlock: 5240752,
   },
   [ContractType.Candies]: {
     address: "0xecA03517c5195F1edD634DA6D690D6c72407c40c",
