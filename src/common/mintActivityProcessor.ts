@@ -134,7 +134,7 @@ export async function handleSeaportFulfill(
   blockNumber: bigint
 ) {
   if (seaportAbi.events.OrderFulfilled.is(log)) {
-    const { offer, consideration, recipient } =
+    const { offer, consideration, recipient, offerer } =
       seaportAbi.events.OrderFulfilled.decode(log);
     const miberaContract =
       "0x6666397DFe9a8c469BF65dc744CB1C733416c420".toLowerCase();
@@ -166,16 +166,41 @@ export async function handleSeaportFulfill(
       }
     }
 
-    // Look for MIBERA tokens in the offer items (represents a purchase)
+    // Look for MIBERA tokens in the offer items (offerer is selling, recipient is buying)
     for (const item of offer) {
       if (item.token.toLowerCase() === miberaContract) {
-        const mintId = `${log.transaction?.hash}-${
+        // Create SALE record for the offerer (seller)
+        const saleMintId = `${log.transaction?.hash}-${
+          item.identifier
+        }-${offerer.toLowerCase()}-sale`;
+
+        ctx.queue.add(async () => {
+          const saleMint = new MintActivity({
+            id: saleMintId,
+            user: offerer.toLowerCase(),
+            contract: miberaContract,
+            tokenStandard: "ERC721",
+            tokenId: BigInt(item.identifier),
+            amount: 1n,
+            quantity: 1n,
+            timestamp,
+            blockNumber,
+            txHash: log.transaction?.hash,
+            operator: undefined,
+            amountPaid,
+            activityType: ActivityType.SALE,
+          });
+          await ctx.store.upsert(saleMint);
+        });
+
+        // Create PURCHASE record for the recipient (buyer)
+        const purchaseMintId = `${log.transaction?.hash}-${
           item.identifier
         }-${recipient.toLowerCase()}-purchase`;
 
         ctx.queue.add(async () => {
-          const mint = new MintActivity({
-            id: mintId,
+          const purchaseMint = new MintActivity({
+            id: purchaseMintId,
             user: recipient.toLowerCase(),
             contract: miberaContract,
             tokenStandard: "ERC721",
@@ -189,22 +214,23 @@ export async function handleSeaportFulfill(
             amountPaid,
             activityType: ActivityType.PURCHASE,
           });
-          await ctx.store.upsert(mint);
+          await ctx.store.upsert(purchaseMint);
         });
       }
     }
 
-    // Check consideration items (represents a sale)
+    // Check consideration items (NFT goes to item.recipient from the offerer)
     for (const item of consideration) {
       if (item.token.toLowerCase() === miberaContract) {
-        const mintId = `${log.transaction?.hash}-${
+        // Create SALE record for the offerer (seller)
+        const saleMintId = `${log.transaction?.hash}-${
           item.identifier
-        }-${item.recipient.toLowerCase()}-sale`;
+        }-${offerer.toLowerCase()}-sale`;
 
         ctx.queue.add(async () => {
-          const mint = new MintActivity({
-            id: mintId,
-            user: item.recipient.toLowerCase(),
+          const saleMint = new MintActivity({
+            id: saleMintId,
+            user: offerer.toLowerCase(),
             contract: miberaContract,
             tokenStandard: "ERC721",
             tokenId: BigInt(item.identifier),
@@ -217,7 +243,31 @@ export async function handleSeaportFulfill(
             amountPaid,
             activityType: ActivityType.SALE,
           });
-          await ctx.store.upsert(mint);
+          await ctx.store.upsert(saleMint);
+        });
+
+        // Create PURCHASE record for the item recipient (buyer)
+        const purchaseMintId = `${log.transaction?.hash}-${
+          item.identifier
+        }-${item.recipient.toLowerCase()}-purchase`;
+
+        ctx.queue.add(async () => {
+          const purchaseMint = new MintActivity({
+            id: purchaseMintId,
+            user: item.recipient.toLowerCase(),
+            contract: miberaContract,
+            tokenStandard: "ERC721",
+            tokenId: BigInt(item.identifier),
+            amount: 1n,
+            quantity: 1n,
+            timestamp,
+            blockNumber,
+            txHash: log.transaction?.hash,
+            operator: undefined,
+            amountPaid,
+            activityType: ActivityType.PURCHASE,
+          });
+          await ctx.store.upsert(purchaseMint);
         });
       }
     }
