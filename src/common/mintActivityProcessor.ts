@@ -134,26 +134,19 @@ export async function handleSeaportFulfill(
   blockNumber: bigint
 ) {
   if (seaportAbi.events.OrderFulfilled.is(log)) {
-    const { offer, consideration, recipient, offerer } =
+    // offerer is buyer, recipient is seller
+    const { offer, consideration, recipient, offerer, zone } =
       seaportAbi.events.OrderFulfilled.decode(log);
     const miberaContract =
       "0x6666397DFe9a8c469BF65dc744CB1C733416c420".toLowerCase();
     const wberaContract =
       "0x6969696969696969696969696969696969696969".toLowerCase();
 
-    // Calculate total amount paid in native token and WBERA
-    let amountPaid = 0n;
-    for (const item of consideration) {
-      if (item.itemType === 0) {
-        // Native token (ETH)
-        amountPaid += BigInt(item.amount);
-      }
-
-      if (item.token.toLowerCase() === wberaContract) {
-        amountPaid += BigInt(item.amount);
-      }
+    if (zone === ZERO_ADDRESS) {
+      return;
     }
 
+    let amountPaid = 0n;
     // Add WBERA amounts from offer items
     for (const item of offer) {
       if (item.itemType === 0) {
@@ -166,41 +159,17 @@ export async function handleSeaportFulfill(
       }
     }
 
-    // Look for MIBERA tokens in the offer items (offerer is selling, recipient is buying)
-    for (const item of offer) {
+    // Check consideration items (NFT goes to item.recipient from the offerer)
+    for (const item of consideration) {
       if (item.token.toLowerCase() === miberaContract) {
-        // Create SALE record for the offerer (seller)
+        // Create SALE record for the recipient (seller)
         const saleMintId = `${log.transaction?.hash}-${
           item.identifier
-        }-${offerer.toLowerCase()}-sale`;
+        }-${recipient.toLowerCase()}-sale`;
 
         ctx.queue.add(async () => {
           const saleMint = new MintActivity({
             id: saleMintId,
-            user: offerer.toLowerCase(),
-            contract: miberaContract,
-            tokenStandard: "ERC721",
-            tokenId: BigInt(item.identifier),
-            amount: 1n,
-            quantity: 1n,
-            timestamp,
-            blockNumber,
-            txHash: log.transaction?.hash,
-            operator: undefined,
-            amountPaid,
-            activityType: ActivityType.SALE,
-          });
-          await ctx.store.upsert(saleMint);
-        });
-
-        // Create PURCHASE record for the recipient (buyer)
-        const purchaseMintId = `${log.transaction?.hash}-${
-          item.identifier
-        }-${recipient.toLowerCase()}-purchase`;
-
-        ctx.queue.add(async () => {
-          const purchaseMint = new MintActivity({
-            id: purchaseMintId,
             user: recipient.toLowerCase(),
             contract: miberaContract,
             tokenStandard: "ERC721",
@@ -212,49 +181,20 @@ export async function handleSeaportFulfill(
             txHash: log.transaction?.hash,
             operator: undefined,
             amountPaid,
-            activityType: ActivityType.PURCHASE,
-          });
-          await ctx.store.upsert(purchaseMint);
-        });
-      }
-    }
-
-    // Check consideration items (NFT goes to item.recipient from the offerer)
-    for (const item of consideration) {
-      if (item.token.toLowerCase() === miberaContract) {
-        // Create SALE record for the offerer (seller)
-        const saleMintId = `${log.transaction?.hash}-${
-          item.identifier
-        }-${offerer.toLowerCase()}-sale`;
-
-        ctx.queue.add(async () => {
-          const saleMint = new MintActivity({
-            id: saleMintId,
-            user: offerer.toLowerCase(),
-            contract: miberaContract,
-            tokenStandard: "ERC721",
-            tokenId: BigInt(item.identifier),
-            amount: 1n,
-            quantity: 1n,
-            timestamp,
-            blockNumber,
-            txHash: log.transaction?.hash,
-            operator: undefined,
-            amountPaid,
             activityType: ActivityType.SALE,
           });
           await ctx.store.upsert(saleMint);
         });
 
-        // Create PURCHASE record for the item recipient (buyer)
+        // Create PURCHASE record for the item offerer (buyer)
         const purchaseMintId = `${log.transaction?.hash}-${
           item.identifier
-        }-${item.recipient.toLowerCase()}-purchase`;
+        }-${offerer.toLowerCase()}-purchase`;
 
         ctx.queue.add(async () => {
           const purchaseMint = new MintActivity({
             id: purchaseMintId,
-            user: item.recipient.toLowerCase(),
+            user: offerer.toLowerCase(),
             contract: miberaContract,
             tokenStandard: "ERC721",
             tokenId: BigInt(item.identifier),
