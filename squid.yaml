@@ -1,6 +1,6 @@
 manifestVersion: subsquid.io/v0.1
 name: mibera-squid
-version: 10
+version: 12
 description: A squid for all things Mibera
 deploy:
   addons:
